@@ -27,7 +27,7 @@ Requires `OPENAI_API_KEY` environment variable. Get a key at: https://platform.o
 ## Architecture
 
 ### Single-File Design
-All server code is in `src/index.ts` (~400 LOC). This is intentional:
+All server code is in `src/index.ts` (~500 LOC). This is intentional:
 - Simple project (3 tools)
 - Easy to understand and modify
 - No complex module dependencies
@@ -95,6 +95,15 @@ Edit `handleOpenAIError()` function - maps API errors to actionable user message
 
 ### Changing Default Model
 Set `GPT_MODEL` environment variable in your MCP client config (e.g., `.claude.json`).
+
+### Reasoning Control (GPT-5.1)
+The `reasoning_effort` parameter controls GPT-5.1's chain-of-thought reasoning:
+- **Not specified:** Uses server default `"minimal"` (adaptive reasoning enabled)
+- **`none`:** Disable reasoning entirely (like GPT-4.1, fastest)
+- **`minimal`:** Very fast with minimal adaptive reasoning (server default)
+- **`low`/`medium`/`high`:** Increasing reasoning depth
+
+**Server Default:** This server uses `minimal` by default to enable adaptive reasoning while keeping responses fast. Override with `none` for pure speed or `high` for complex analysis.
 
 **Model Validation:** At startup, the server validates the configured model via OpenAI `models.list()` API:
 - If `GPT_MODEL` not set → uses default `gpt-5.1-codex` (no validation)

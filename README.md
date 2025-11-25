@@ -25,6 +25,21 @@ While Claude excels at many tasks, GPT offers unique capabilities:
 
 **Default Model:** `gpt-5.1-codex` (configurable via `GPT_MODEL` env var)
 
+### Reasoning Control
+
+GPT-5.1 models support configurable reasoning depth via `reasoning_effort`:
+
+| Value | Behavior |
+|-------|----------|
+| *(not set)* | **Default: `minimal`** - adaptive reasoning enabled |
+| `none` | Disable reasoning (like GPT-4.1, fastest) |
+| `minimal` | Very fast with minimal adaptive reasoning |
+| `low` | Light reasoning, good balance |
+| `medium` | Moderate reasoning depth |
+| `high` | Deep reasoning, best for complex tasks |
+
+> **Note:** This server defaults to `minimal` to enable adaptive reasoning while keeping responses fast. Use `none` for maximum speed, `high` for complex analysis.
+
 ## Quick Start
 
 ### Prerequisites
@@ -144,7 +159,7 @@ Generate text from a single prompt.
 | `input` | string | Yes | The prompt or question |
 | `model` | string | No | Model to use (default: `gpt-5.1-codex`) |
 | `instructions` | string | No | System instructions |
-| `reasoning_effort` | string | No | `low`, `medium`, or `high` |
+| `reasoning_effort` | string | No | `none`/`minimal`/`low`/`medium`/`high` (GPT-5.1 reasoning control) |
 | `temperature` | number | No | Randomness 0-2 (default: 1) |
 | `max_tokens` | number | No | Maximum output length |
 | `top_p` | number | No | Nucleus sampling 0-1 |
@@ -158,7 +173,7 @@ Multi-turn conversation with message history.
 | `messages` | array | Yes | Array of `{role, content}` objects |
 | `model` | string | No | Model to use (default: `gpt-5.1-codex`) |
 | `instructions` | string | No | System instructions |
-| `reasoning_effort` | string | No | `low`, `medium`, or `high` |
+| `reasoning_effort` | string | No | `none`/`minimal`/`low`/`medium`/`high` (GPT-5.1 reasoning control) |
 | `temperature` | number | No | Randomness 0-2 |
 | `max_tokens` | number | No | Maximum output length |
 

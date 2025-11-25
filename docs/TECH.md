@@ -47,7 +47,7 @@
 ```
 gpt-mcp-server/
 ├── src/
-│   └── index.ts          # Single-file server (~400 LOC)
+│   └── index.ts          # Single-file server (~500 LOC)
 ├── dist/                 # Compiled output (gitignored)
 ├── docs/
 │   ├── PRD.md            # Product requirements
@@ -97,7 +97,7 @@ Generate text using OpenAI GPT API with a simple input prompt.
   input: string;              // Required - The prompt
   model?: string;             // Optional - Model override
   instructions?: string;      // Optional - System instructions
-  reasoning_effort?: 'low' | 'medium' | 'high';  // Optional
+  reasoning_effort?: 'none' | 'minimal' | 'low' | 'medium' | 'high';  // GPT-5.1 reasoning control
   max_tokens?: number;        // Optional - Max output length
   temperature?: number;       // Optional - 0-2
   top_p?: number;             // Optional - 0-1
@@ -127,7 +127,7 @@ Generate text using GPT with structured conversation messages.
   }>;
   model?: string;
   instructions?: string;
-  reasoning_effort?: 'low' | 'medium' | 'high';
+  reasoning_effort?: 'none' | 'minimal' | 'low' | 'medium' | 'high';  // GPT-5.1 reasoning control
   max_tokens?: number;
   temperature?: number;
   top_p?: number;
@@ -160,6 +160,7 @@ Check GPT MCP server status and configuration.
   configured_model: string | null; // From GPT_MODEL env var
   fallback_model: string;         // Default fallback
   fallback_used: boolean;         // Whether fallback was triggered
+  default_reasoning: string;      // Default reasoning_effort level ("minimal")
   server_version: string;         // Server version
   api_key_configured: boolean;    // Whether OPENAI_API_KEY is set
 }

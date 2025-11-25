@@ -27,6 +27,9 @@ const CONFIGURED_MODEL = process.env.GPT_MODEL;
 let ACTIVE_MODEL = CONFIGURED_MODEL || FALLBACK_MODEL;
 let MODEL_FALLBACK_USED = false;
 
+// Reasoning configuration - "minimal" enables adaptive reasoning with lowest overhead
+const DEFAULT_REASONING_EFFORT = "minimal";
+
 // =============================================================================
 // Environment Validation
 // =============================================================================
@@ -150,9 +153,9 @@ const GenerateInputSchema = z.object({
   instructions: z.string()
     .optional()
     .describe("System instructions for the model"),
-  reasoning_effort: z.enum(["low", "medium", "high"])
+  reasoning_effort: z.enum(["none", "minimal", "low", "medium", "high"])
     .optional()
-    .describe("Reasoning effort level"),
+    .describe("Reasoning effort level (GPT-5.1: none/minimal/low/medium/high, Codex: low/medium/high)"),
   max_tokens: z.number()
     .int()
     .min(1)
@@ -184,7 +187,10 @@ Args:
   - input (string, required): The prompt or question for GPT
   - model (string, optional): Model to use (defaults to GPT_MODEL env or gpt-5.1-codex)
   - instructions (string, optional): System instructions for the model
-  - reasoning_effort (string, optional): Reasoning effort level (low/medium/high)
+  - reasoning_effort (string, optional): Reasoning level - none/minimal/low/medium/high
+    - none: No reasoning (like GPT-4.1, fastest)
+    - minimal: Minimal reasoning (very fast)
+    - low/medium/high: Increasing reasoning depth
   - max_tokens (number, optional): Maximum output length
   - temperature (number, optional): Randomness 0-2 (higher = more creative)
   - top_p (number, optional): Top-p sampling parameter
@@ -224,14 +230,23 @@ Note: Each call may produce different results due to model randomness.`,
         content: params.input,
       });
 
-      const response = await openai.chat.completions.create({
+      // Build request options, only including defined parameters
+      const requestOptions: OpenAI.ChatCompletionCreateParamsNonStreaming = {
         model: params.model ?? ACTIVE_MODEL,
         messages,
-        max_tokens: params.max_tokens,
-        temperature: params.temperature,
-        top_p: params.top_p,
-        // Note: reasoning_effort is model-specific, may not apply to all models
-      });
+      };
+
+      // Optional parameters - only add if defined
+      if (params.max_tokens !== undefined) requestOptions.max_tokens = params.max_tokens;
+      if (params.temperature !== undefined) requestOptions.temperature = params.temperature;
+      if (params.top_p !== undefined) requestOptions.top_p = params.top_p;
+
+      // reasoning_effort controls GPT-5.1 adaptive reasoning
+      // Default "minimal" enables adaptive mode with lowest overhead
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (requestOptions as any).reasoning_effort = params.reasoning_effort ?? DEFAULT_REASONING_EFFORT;
+
+      const response = await openai.chat.completions.create(requestOptions);
 
       const text = response.choices[0]?.message?.content || "";
 
@@ -275,9 +290,9 @@ const MessagesInputSchema = z.object({
   instructions: z.string()
     .optional()
     .describe("System instructions for the model"),
-  reasoning_effort: z.enum(["low", "medium", "high"])
+  reasoning_effort: z.enum(["none", "minimal", "low", "medium", "high"])
     .optional()
-    .describe("Reasoning effort level"),
+    .describe("Reasoning effort level (GPT-5.1: none/minimal/low/medium/high, Codex: low/medium/high)"),
   max_tokens: z.number()
     .int()
     .min(1)
@@ -311,7 +326,7 @@ Args:
     - content: The message text
   - model (string, optional): Model to use (defaults to GPT_MODEL env or gpt-5.1-codex)
   - instructions (string, optional): System instructions for the model
-  - reasoning_effort (string, optional): Reasoning effort level (low/medium/high)
+  - reasoning_effort (string, optional): Reasoning level - none/minimal/low/medium/high
   - max_tokens (number, optional): Maximum output length
   - temperature (number, optional): Randomness 0-2
   - top_p (number, optional): Top-p sampling parameter
@@ -355,13 +370,22 @@ Note: Messages should alternate between user and assistant roles.`,
         });
       }
 
-      const response = await openai.chat.completions.create({
+      // Build request options, only including defined parameters
+      const requestOptions: OpenAI.ChatCompletionCreateParamsNonStreaming = {
         model: params.model ?? ACTIVE_MODEL,
         messages,
-        max_tokens: params.max_tokens,
-        temperature: params.temperature,
-        top_p: params.top_p,
-      });
+      };
+
+      // Optional parameters - only add if defined
+      if (params.max_tokens !== undefined) requestOptions.max_tokens = params.max_tokens;
+      if (params.temperature !== undefined) requestOptions.temperature = params.temperature;
+      if (params.top_p !== undefined) requestOptions.top_p = params.top_p;
+
+      // reasoning_effort controls GPT-5.1 adaptive reasoning
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (requestOptions as any).reasoning_effort = params.reasoning_effort ?? DEFAULT_REASONING_EFFORT;
+
+      const response = await openai.chat.completions.create(requestOptions);
 
       const text = response.choices[0]?.message?.content || "";
 
@@ -412,6 +436,7 @@ Returns:
   - configured_model: Model from GPT_MODEL env var (if set)
   - fallback_model: Default fallback model
   - fallback_used: Whether fallback was triggered
+  - default_reasoning: Default reasoning_effort level
   - server_version: Server version
   - api_key_configured: Whether OPENAI_API_KEY is set`,
     inputSchema: StatusInputSchema,
@@ -428,6 +453,7 @@ Returns:
       configured_model: CONFIGURED_MODEL || null,
       fallback_model: FALLBACK_MODEL,
       fallback_used: MODEL_FALLBACK_USED,
+      default_reasoning: DEFAULT_REASONING_EFFORT,
       server_version: SERVER_VERSION,
       api_key_configured: !!process.env.OPENAI_API_KEY,
     };
@@ -447,6 +473,7 @@ Returns:
     }
 
     statusText += `- **Fallback Model:** ${status.fallback_model}\n`;
+    statusText += `- **Default Reasoning:** ${status.default_reasoning} (adaptive mode)\n`;
     statusText += `- **Server Version:** ${status.server_version}\n`;
     statusText += `- **API Key:** ${status.api_key_configured ? "configured ✓" : "missing ⚠️"}\n`;
 
