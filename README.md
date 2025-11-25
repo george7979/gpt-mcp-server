@@ -14,7 +14,7 @@ An MCP (Model Context Protocol) server that brings OpenAI GPT capabilities to Cl
 While Claude excels at many tasks, GPT offers unique capabilities:
 
 - **Different Training Data** - Alternative perspective from different model training
-- **Reasoning Models** - Access to GPT's reasoning effort levels (none/minimal/low/medium/high)
+- **Reasoning Models** - Access to GPT's reasoning effort levels (none/low/medium/high)
 - **Model Variety** - Access to GPT-4, GPT-4.1, GPT-5.1, GPT-5.1-Codex and future models
 - **Second Opinion** - Get a different AI's take on complex problems
 
@@ -47,14 +47,13 @@ GPT-5.x models support configurable reasoning depth via `reasoning_effort`:
 
 | Value | Behavior |
 |-------|----------|
-| *(not set)* | **Default: `minimal`** - adaptive reasoning enabled |
+| *(not set)* | **Default: `low`** - adaptive reasoning enabled |
 | `none` | Disable reasoning (like GPT-4.1, fastest) |
-| `minimal` | Very fast with minimal adaptive reasoning |
-| `low` | Light reasoning, good balance |
+| `low` | Light reasoning (fast, server default) |
 | `medium` | Moderate reasoning depth |
 | `high` | Deep reasoning, best for complex tasks |
 
-> **Note:** This server defaults to `minimal` to enable adaptive reasoning while keeping responses fast. Use `none` for maximum speed, `high` for complex analysis.
+> **Note:** This server defaults to `low` as the minimum supported level for gpt-5.1-codex. Use `none` for maximum speed, `high` for complex analysis.
 
 ### Response Format
 
@@ -188,7 +187,7 @@ Generate text from a single prompt.
 | `input` | string | Yes | The prompt or question |
 | `model` | string | No | Model to use (default: `gpt-5.1-codex`) |
 | `instructions` | string | No | System instructions |
-| `reasoning_effort` | string | No | `none`/`minimal`/`low`/`medium`/`high` (GPT-5.x reasoning control) |
+| `reasoning_effort` | string | No | `none`/`low`/`medium`/`high` (GPT-5.x reasoning control) |
 | `response_format` | string | No | `markdown` (default) or `json` |
 | `temperature` | number | No | Randomness 0-2 (default: 1) |
 | `max_output_tokens` | number | No | Maximum output length |
@@ -203,7 +202,7 @@ Multi-turn conversation with message history.
 | `messages` | array | Yes | Array of `{role, content}` objects |
 | `model` | string | No | Model to use (default: `gpt-5.1-codex`) |
 | `instructions` | string | No | System instructions |
-| `reasoning_effort` | string | No | `none`/`minimal`/`low`/`medium`/`high` (GPT-5.x reasoning control) |
+| `reasoning_effort` | string | No | `none`/`low`/`medium`/`high` (GPT-5.x reasoning control) |
 | `response_format` | string | No | `markdown` (default) or `json` |
 | `temperature` | number | No | Randomness 0-2 |
 | `max_output_tokens` | number | No | Maximum output length |
@@ -229,7 +228,7 @@ Returns:
 - `configured_model` - Model from GPT_MODEL env var (if set)
 - `fallback_model` - Default fallback model
 - `fallback_used` - Whether fallback was triggered due to invalid model
-- `default_reasoning` - Default reasoning_effort level (`minimal`)
+- `default_reasoning` - Default reasoning_effort level (`low`)
 - `character_limit` - Maximum response character limit (25000)
 - `server_version` - Server version
 - `api_type` - OpenAI API type (`Responses API (v1/responses)`)

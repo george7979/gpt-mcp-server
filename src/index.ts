@@ -33,8 +33,8 @@ const CONFIGURED_MODEL = process.env.GPT_MODEL;
 let ACTIVE_MODEL = CONFIGURED_MODEL || FALLBACK_MODEL;
 let MODEL_FALLBACK_USED = false;
 
-// Reasoning configuration - "minimal" enables adaptive reasoning with lowest overhead
-const DEFAULT_REASONING_EFFORT = "minimal";
+// Reasoning configuration - "low" is the minimum supported level for gpt-5.1-codex
+const DEFAULT_REASONING_EFFORT = "low";
 
 // Response limits - prevent context overflow
 const CHARACTER_LIMIT = 25000;
@@ -50,7 +50,7 @@ enum ResponseFormat {
 }
 
 /** Reasoning effort levels supported by GPT-5.x models */
-type ReasoningEffort = "none" | "minimal" | "low" | "medium" | "high";
+type ReasoningEffort = "none" | "low" | "medium" | "high";
 
 // =============================================================================
 // Environment Validation
@@ -214,9 +214,9 @@ const GenerateInputSchema = z.object({
   instructions: z.string()
     .optional()
     .describe("System instructions for the model"),
-  reasoning_effort: z.enum(["none", "minimal", "low", "medium", "high"])
+  reasoning_effort: z.enum(["none", "low", "medium", "high"])
     .optional()
-    .describe("Reasoning effort level (GPT-5.x: none/minimal/low/medium/high)"),
+    .describe("Reasoning effort level (GPT-5.x: none/low/medium/high)"),
   max_output_tokens: z.number()
     .int()
     .min(1)
@@ -251,10 +251,10 @@ Args:
   - input (string, required): The prompt or question for GPT
   - model (string, optional): Model to use (defaults to GPT_MODEL env or gpt-5.1-codex)
   - instructions (string, optional): System instructions for the model
-  - reasoning_effort (string, optional): Reasoning level - none/minimal/low/medium/high
+  - reasoning_effort (string, optional): Reasoning level - none/low/medium/high
     - none: No reasoning (like GPT-4.1, fastest)
-    - minimal: Minimal reasoning (very fast, server default)
-    - low/medium/high: Increasing reasoning depth
+    - low: Light reasoning (fast, server default)
+    - medium/high: Increasing reasoning depth
   - max_output_tokens (number, optional): Maximum output length
   - temperature (number, optional): Randomness 0-2 (higher = more creative)
   - top_p (number, optional): Top-p sampling parameter
@@ -390,9 +390,9 @@ const MessagesInputSchema = z.object({
   instructions: z.string()
     .optional()
     .describe("System instructions for the model"),
-  reasoning_effort: z.enum(["none", "minimal", "low", "medium", "high"])
+  reasoning_effort: z.enum(["none", "low", "medium", "high"])
     .optional()
-    .describe("Reasoning effort level (GPT-5.x: none/minimal/low/medium/high)"),
+    .describe("Reasoning effort level (GPT-5.x: none/low/medium/high)"),
   max_output_tokens: z.number()
     .int()
     .min(1)
@@ -429,7 +429,7 @@ Args:
     - content: The message text
   - model (string, optional): Model to use (defaults to GPT_MODEL env or gpt-5.1-codex)
   - instructions (string, optional): System instructions for the model
-  - reasoning_effort (string, optional): Reasoning level - none/minimal/low/medium/high
+  - reasoning_effort (string, optional): Reasoning level - none/low/medium/high
   - max_output_tokens (number, optional): Maximum output length
   - temperature (number, optional): Randomness 0-2
   - top_p (number, optional): Top-p sampling parameter

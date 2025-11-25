@@ -11,7 +11,7 @@
 ## Problem Statement
 Claude Code users need access to OpenAI GPT capabilities without leaving their workflow. While Claude excels at many tasks, GPT offers unique strengths:
 - **Different Training Data** - Alternative perspective from different model training
-- **Reasoning Models** - Access to GPT's reasoning effort levels (none/minimal/low/medium/high)
+- **Reasoning Models** - Access to GPT's reasoning effort levels (none/low/medium/high)
 - **Model Variety** - Access to GPT-4, GPT-4.1, GPT-5.1, GPT-5.1-Codex and future models
 - **Comparison** - Get a second opinion from a different AI provider
 

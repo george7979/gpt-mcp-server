@@ -81,7 +81,7 @@ gpt-mcp-server/
 |----------|-------|-------------|
 | `FALLBACK_MODEL` | `gpt-5.1-codex` | Default model when GPT_MODEL not set or invalid |
 | `CHARACTER_LIMIT` | `25000` | Maximum response characters before truncation |
-| `DEFAULT_REASONING_EFFORT` | `minimal` | Default reasoning_effort for GPT-5.1 models |
+| `DEFAULT_REASONING_EFFORT` | `low` | Default reasoning_effort for GPT-5.1 models |
 
 ### Model Validation Flow
 
@@ -112,7 +112,7 @@ Generate text using OpenAI GPT API with a simple input prompt.
   input: string;              // Required - The prompt
   model?: string;             // Optional - Model override
   instructions?: string;      // Optional - System instructions
-  reasoning_effort?: 'none' | 'minimal' | 'low' | 'medium' | 'high';  // GPT-5.x reasoning control
+  reasoning_effort?: 'none' | 'low' | 'medium' | 'high';  // GPT-5.x reasoning control
   response_format?: 'markdown' | 'json';  // Optional - Output format (default: markdown)
   max_output_tokens?: number; // Optional - Max output length (Responses API parameter)
   temperature?: number;       // Optional - 0-2
@@ -143,7 +143,7 @@ Generate text using GPT with structured conversation messages.
   }>;
   model?: string;
   instructions?: string;         // System instructions (replaces 'developer' role)
-  reasoning_effort?: 'none' | 'minimal' | 'low' | 'medium' | 'high';  // GPT-5.x reasoning control
+  reasoning_effort?: 'none' | 'low' | 'medium' | 'high';  // GPT-5.x reasoning control
   response_format?: 'markdown' | 'json';  // Optional - Output format (default: markdown)
   max_output_tokens?: number;    // Optional - Responses API parameter
   temperature?: number;
@@ -177,7 +177,7 @@ Check GPT MCP server status and configuration.
   configured_model: string | null; // From GPT_MODEL env var
   fallback_model: string;         // Default fallback
   fallback_used: boolean;         // Whether fallback was triggered
-  default_reasoning: string;      // Default reasoning_effort level ("minimal")
+  default_reasoning: string;      // Default reasoning_effort level ("low")
   character_limit: number;        // Maximum response character limit (25000)
   server_version: string;         // Server version
   api_type: string;               // "Responses API (v1/responses)"

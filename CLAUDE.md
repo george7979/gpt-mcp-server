@@ -118,12 +118,12 @@ Set `GPT_MODEL` environment variable in your MCP client config (e.g., `.claude.j
 
 ### Reasoning Control (GPT-5.x)
 The `reasoning_effort` parameter controls GPT-5.x's chain-of-thought reasoning:
-- **Not specified:** Uses server default `"minimal"` (adaptive reasoning enabled)
+- **Not specified:** Uses server default `"low"` (adaptive reasoning enabled)
 - **`none`:** Disable reasoning entirely (like GPT-4.1, fastest)
-- **`minimal`:** Very fast with minimal adaptive reasoning (server default)
-- **`low`/`medium`/`high`:** Increasing reasoning depth
+- **`low`:** Light reasoning (fast, server default)
+- **`medium`/`high`:** Increasing reasoning depth
 
-**Server Default:** This server uses `minimal` by default to enable adaptive reasoning while keeping responses fast. Override with `none` for pure speed or `high` for complex analysis.
+**Server Default:** This server uses `low` by default as the minimum supported reasoning level for gpt-5.1-codex. Override with `none` for pure speed or `high` for complex analysis.
 
 ### Response Format
 The `response_format` parameter controls output format:
@@ -163,7 +163,7 @@ const response = await openai.responses.create({
   model: "gpt-5.1-codex",
   input: "Your prompt here",
   instructions: "System instructions (optional)",
-  reasoning: { effort: "minimal" },  // GPT-5.x only
+  reasoning: { effort: "low" },  // GPT-5.x only
   max_output_tokens: 1000,
   temperature: 0.7,
 });
