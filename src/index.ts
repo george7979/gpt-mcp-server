@@ -3,10 +3,16 @@
  * GPT MCP Server
  *
  * An MCP (Model Context Protocol) server that provides OpenAI GPT capabilities
- * to Claude Code and other MCP clients. Features include text generation,
- * multi-turn conversations, and server status checking.
+ * to Claude Code and other MCP clients using the new Responses API.
+ * Features include text generation, multi-turn conversations, and server status.
+ *
+ * Uses OpenAI Responses API (v1/responses) which supports:
+ * - All GPT models including gpt-5.1-codex
+ * - Built-in tools (web search, file search)
+ * - Adaptive reasoning with configurable effort
  *
  * @see https://github.com/george7979/gpt-mcp-server
+ * @see https://platform.openai.com/docs/api-reference/responses
  */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -19,9 +25,9 @@ import { z } from "zod";
 // =============================================================================
 
 const SERVER_NAME = "gpt-mcp-server";
-const SERVER_VERSION = "1.1.0";
+const SERVER_VERSION = "2.0.0";
 
-// Model configuration
+// Model configuration - gpt-5.1-codex works with Responses API
 const FALLBACK_MODEL = "gpt-5.1-codex";
 const CONFIGURED_MODEL = process.env.GPT_MODEL;
 let ACTIVE_MODEL = CONFIGURED_MODEL || FALLBACK_MODEL;
@@ -43,12 +49,8 @@ enum ResponseFormat {
   JSON = "json"
 }
 
-/**
- * Note on reasoning_effort:
- * OpenAI SDK only types 'low' | 'medium' | 'high' | null
- * but GPT-5.1 API actually supports 'none' and 'minimal' as well.
- * We extend the type with `& { reasoning_effort?: string }` in handlers.
- */
+/** Reasoning effort levels supported by GPT-5.x models */
+type ReasoningEffort = "none" | "minimal" | "low" | "medium" | "high";
 
 // =============================================================================
 // Environment Validation
@@ -109,7 +111,7 @@ async function validateConfiguredModel(): Promise<void> {
 }
 
 // =============================================================================
-// Shared Types & Utilities
+// Shared Utilities
 // =============================================================================
 
 /**
@@ -122,7 +124,7 @@ function truncateResponse(text: string): { text: string; truncated: boolean } {
   }
 
   const truncated = text.slice(0, CHARACTER_LIMIT);
-  const truncatedText = truncated + `\n\n---\n⚠️ **Response truncated** from ${text.length} to ${CHARACTER_LIMIT} characters. Use \`max_tokens\` parameter to limit output size.`;
+  const truncatedText = truncated + `\n\n---\n⚠️ **Response truncated** from ${text.length} to ${CHARACTER_LIMIT} characters. Use \`max_output_tokens\` parameter to limit output size.`;
 
   return { text: truncatedText, truncated: true };
 }
@@ -165,6 +167,30 @@ function handleOpenAIError(error: unknown): string {
   return `Error: Unexpected error occurred: ${String(error)}`;
 }
 
+/**
+ * Extract text content from Responses API output.
+ * The output structure is: response.output[].content[].text
+ */
+function extractResponseText(response: OpenAI.Responses.Response): string {
+  if (!response.output || response.output.length === 0) {
+    return "";
+  }
+
+  // Collect text from all output items
+  const texts: string[] = [];
+  for (const item of response.output) {
+    if (item.type === "message" && item.content) {
+      for (const content of item.content) {
+        if (content.type === "output_text" && content.text) {
+          texts.push(content.text);
+        }
+      }
+    }
+  }
+
+  return texts.join("\n\n");
+}
+
 // =============================================================================
 // MCP Server Initialization
 // =============================================================================
@@ -190,12 +216,12 @@ const GenerateInputSchema = z.object({
     .describe("System instructions for the model"),
   reasoning_effort: z.enum(["none", "minimal", "low", "medium", "high"])
     .optional()
-    .describe("Reasoning effort level (GPT-5.1: none/minimal/low/medium/high)"),
-  max_tokens: z.number()
+    .describe("Reasoning effort level (GPT-5.x: none/minimal/low/medium/high)"),
+  max_output_tokens: z.number()
     .int()
     .min(1)
     .optional()
-    .describe("Maximum tokens to generate"),
+    .describe("Maximum output tokens to generate"),
   temperature: z.number()
     .min(0)
     .max(2)
@@ -217,9 +243,9 @@ server.registerTool(
     title: "Generate Text with GPT",
     description: `Generate text using OpenAI GPT API with a simple input prompt.
 
-This tool sends a prompt to OpenAI GPT and returns the generated text response.
-It is ideal for single-turn interactions, creative writing, code generation,
-analysis, and general AI assistance tasks.
+This tool sends a prompt to OpenAI GPT using the Responses API and returns
+the generated text response. It is ideal for single-turn interactions,
+creative writing, code generation, analysis, and general AI assistance tasks.
 
 Args:
   - input (string, required): The prompt or question for GPT
@@ -229,7 +255,7 @@ Args:
     - none: No reasoning (like GPT-4.1, fastest)
     - minimal: Minimal reasoning (very fast, server default)
     - low/medium/high: Increasing reasoning depth
-  - max_tokens (number, optional): Maximum output length
+  - max_output_tokens (number, optional): Maximum output length
   - temperature (number, optional): Randomness 0-2 (higher = more creative)
   - top_p (number, optional): Top-p sampling parameter
   - response_format ('markdown' | 'json'): Output format (default: 'markdown')
@@ -240,8 +266,8 @@ Returns:
     "text": string,           // Generated text content
     "model": string,          // Model used for generation
     "usage": {
-      "prompt_tokens": number,
-      "completion_tokens": number,
+      "input_tokens": number,
+      "output_tokens": number,
       "total_tokens": number
     },
     "truncated": boolean      // Whether response was truncated
@@ -263,49 +289,50 @@ Note: Each call may produce different results due to model randomness.`,
   },
   async (params) => {
     try {
-      const messages: OpenAI.ChatCompletionMessageParam[] = [];
+      const model = params.model ?? ACTIVE_MODEL;
+      const reasoningEffort = (params.reasoning_effort ?? DEFAULT_REASONING_EFFORT) as ReasoningEffort;
 
-      // Add system instructions if provided
-      if (params.instructions) {
-        messages.push({
-          role: "developer",
-          content: params.instructions,
-        });
-      }
-
-      // Add user prompt
-      messages.push({
-        role: "user",
-        content: params.input,
-      });
-
-      // Build request options
-      const requestOptions: OpenAI.ChatCompletionCreateParamsNonStreaming = {
-        model: params.model ?? ACTIVE_MODEL,
-        messages,
+      // Build Responses API request
+      const requestOptions: OpenAI.Responses.ResponseCreateParams = {
+        model,
+        input: params.input,
       };
 
-      // Optional parameters - only add if defined
-      if (params.max_tokens !== undefined) requestOptions.max_tokens = params.max_tokens;
-      if (params.temperature !== undefined) requestOptions.temperature = params.temperature;
-      if (params.top_p !== undefined) requestOptions.top_p = params.top_p;
+      // Add instructions if provided
+      if (params.instructions) {
+        requestOptions.instructions = params.instructions;
+      }
 
-      // reasoning_effort uses extended GPT-5.1 values ('none', 'minimal') not yet in SDK types
-      // Cast to unknown first to bypass TypeScript's strict checking
-      const extendedOptions = requestOptions as unknown as Record<string, unknown>;
-      extendedOptions.reasoning_effort = params.reasoning_effort ?? DEFAULT_REASONING_EFFORT;
+      // Add reasoning configuration (GPT-5.x models)
+      if (reasoningEffort !== "none") {
+        requestOptions.reasoning = {
+          effort: reasoningEffort as "low" | "medium" | "high",
+        };
+      }
 
-      const response = await openai.chat.completions.create(requestOptions);
+      // Optional parameters
+      if (params.max_output_tokens !== undefined) {
+        requestOptions.max_output_tokens = params.max_output_tokens;
+      }
+      if (params.temperature !== undefined) {
+        requestOptions.temperature = params.temperature;
+      }
+      if (params.top_p !== undefined) {
+        requestOptions.top_p = params.top_p;
+      }
 
-      const rawText = response.choices[0]?.message?.content || "";
+      // Call Responses API
+      const response = await openai.responses.create(requestOptions);
+
+      const rawText = extractResponseText(response);
 
       // Prepare structured output
       const structuredOutput = {
         text: rawText,
-        model: requestOptions.model,
+        model: response.model,
         usage: response.usage ? {
-          prompt_tokens: response.usage.prompt_tokens,
-          completion_tokens: response.usage.completion_tokens,
+          input_tokens: response.usage.input_tokens,
+          output_tokens: response.usage.output_tokens,
           total_tokens: response.usage.total_tokens,
         } : undefined,
         truncated: false,
@@ -320,7 +347,7 @@ Note: Each call may produce different results due to model randomness.`,
         // Markdown format
         textContent = rawText;
         if (response.usage) {
-          textContent += `\n\n---\n**Usage:** ${response.usage.prompt_tokens} prompt + ${response.usage.completion_tokens} completion = ${response.usage.total_tokens} total tokens`;
+          textContent += `\n\n---\n**Usage:** ${response.usage.input_tokens} input + ${response.usage.output_tokens} output = ${response.usage.total_tokens} total tokens`;
         }
       }
 
@@ -346,8 +373,8 @@ Note: Each call may produce different results due to model randomness.`,
 // =============================================================================
 
 const MessageSchema = z.object({
-  role: z.enum(["user", "assistant", "developer"])
-    .describe("Message role: 'user' for human, 'assistant' for AI, 'developer' for system"),
+  role: z.enum(["user", "assistant"])
+    .describe("Message role: 'user' for human, 'assistant' for AI"),
   content: z.string()
     .min(1, "Message content is required")
     .describe("The message content"),
@@ -365,12 +392,12 @@ const MessagesInputSchema = z.object({
     .describe("System instructions for the model"),
   reasoning_effort: z.enum(["none", "minimal", "low", "medium", "high"])
     .optional()
-    .describe("Reasoning effort level (GPT-5.1: none/minimal/low/medium/high)"),
-  max_tokens: z.number()
+    .describe("Reasoning effort level (GPT-5.x: none/minimal/low/medium/high)"),
+  max_output_tokens: z.number()
     .int()
     .min(1)
     .optional()
-    .describe("Maximum tokens to generate"),
+    .describe("Maximum output tokens to generate"),
   temperature: z.number()
     .min(0)
     .max(2)
@@ -393,17 +420,17 @@ server.registerTool(
     description: `Generate text using GPT with structured multi-turn conversation messages.
 
 This tool enables multi-turn conversations by accepting an array of messages
-with alternating user/assistant roles. Use this for contextual conversations
-where previous exchanges inform the response.
+with alternating user/assistant roles. Uses the Responses API for contextual
+conversations where previous exchanges inform the response.
 
 Args:
   - messages (array, required): Conversation history
-    - role: "user" (human), "assistant" (AI response), or "developer" (system)
+    - role: "user" (human) or "assistant" (AI response)
     - content: The message text
   - model (string, optional): Model to use (defaults to GPT_MODEL env or gpt-5.1-codex)
   - instructions (string, optional): System instructions for the model
   - reasoning_effort (string, optional): Reasoning level - none/minimal/low/medium/high
-  - max_tokens (number, optional): Maximum output length
+  - max_output_tokens (number, optional): Maximum output length
   - temperature (number, optional): Randomness 0-2
   - top_p (number, optional): Top-p sampling parameter
   - response_format ('markdown' | 'json'): Output format (default: 'markdown')
@@ -436,51 +463,59 @@ Note: Messages should alternate between user and assistant roles.`,
   },
   async (params) => {
     try {
-      const messages: OpenAI.ChatCompletionMessageParam[] = [];
+      const model = params.model ?? ACTIVE_MODEL;
+      const reasoningEffort = (params.reasoning_effort ?? DEFAULT_REASONING_EFFORT) as ReasoningEffort;
 
-      // Add system instructions if provided
-      if (params.instructions) {
-        messages.push({
-          role: "developer",
-          content: params.instructions,
-        });
-      }
+      // Build input items for Responses API
+      // Convert messages to ResponseInputItem format
+      const inputItems: OpenAI.Responses.ResponseInputItem[] = params.messages.map(msg => ({
+        type: "message" as const,
+        role: msg.role,
+        content: msg.content,
+      }));
 
-      // Add conversation messages
-      for (const msg of params.messages) {
-        messages.push({
-          role: msg.role,
-          content: msg.content,
-        });
-      }
-
-      // Build request options
-      const requestOptions: OpenAI.ChatCompletionCreateParamsNonStreaming = {
-        model: params.model ?? ACTIVE_MODEL,
-        messages,
+      // Build Responses API request
+      const requestOptions: OpenAI.Responses.ResponseCreateParams = {
+        model,
+        input: inputItems,
       };
 
-      // Optional parameters - only add if defined
-      if (params.max_tokens !== undefined) requestOptions.max_tokens = params.max_tokens;
-      if (params.temperature !== undefined) requestOptions.temperature = params.temperature;
-      if (params.top_p !== undefined) requestOptions.top_p = params.top_p;
+      // Add instructions if provided
+      if (params.instructions) {
+        requestOptions.instructions = params.instructions;
+      }
 
-      // reasoning_effort uses extended GPT-5.1 values ('none', 'minimal') not yet in SDK types
-      const extendedOptions = requestOptions as unknown as Record<string, unknown>;
-      extendedOptions.reasoning_effort = params.reasoning_effort ?? DEFAULT_REASONING_EFFORT;
+      // Add reasoning configuration (GPT-5.x models)
+      if (reasoningEffort !== "none") {
+        requestOptions.reasoning = {
+          effort: reasoningEffort as "low" | "medium" | "high",
+        };
+      }
 
-      const response = await openai.chat.completions.create(requestOptions);
+      // Optional parameters
+      if (params.max_output_tokens !== undefined) {
+        requestOptions.max_output_tokens = params.max_output_tokens;
+      }
+      if (params.temperature !== undefined) {
+        requestOptions.temperature = params.temperature;
+      }
+      if (params.top_p !== undefined) {
+        requestOptions.top_p = params.top_p;
+      }
 
-      const rawText = response.choices[0]?.message?.content || "";
+      // Call Responses API
+      const response = await openai.responses.create(requestOptions);
+
+      const rawText = extractResponseText(response);
 
       // Prepare structured output
       const structuredOutput = {
         text: rawText,
-        model: requestOptions.model,
+        model: response.model,
         message_count: params.messages.length,
         usage: response.usage ? {
-          prompt_tokens: response.usage.prompt_tokens,
-          completion_tokens: response.usage.completion_tokens,
+          input_tokens: response.usage.input_tokens,
+          output_tokens: response.usage.output_tokens,
           total_tokens: response.usage.total_tokens,
         } : undefined,
         truncated: false,
@@ -495,7 +530,7 @@ Note: Messages should alternate between user and assistant roles.`,
         // Markdown format
         textContent = rawText;
         if (response.usage) {
-          textContent += `\n\n---\n**Usage:** ${response.usage.prompt_tokens} prompt + ${response.usage.completion_tokens} completion = ${response.usage.total_tokens} total tokens`;
+          textContent += `\n\n---\n**Usage:** ${response.usage.input_tokens} input + ${response.usage.output_tokens} output = ${response.usage.total_tokens} total tokens`;
         }
       }
 
@@ -530,6 +565,7 @@ const StatusOutputSchema = z.object({
   default_reasoning: z.string().describe("Default reasoning_effort level"),
   character_limit: z.number().describe("Maximum response character limit"),
   server_version: z.string().describe("Server version"),
+  api_type: z.string().describe("OpenAI API type used"),
   api_key_configured: z.boolean().describe("Whether OPENAI_API_KEY is set"),
 });
 
@@ -562,6 +598,7 @@ Returns:
     "default_reasoning": string,   // Default reasoning_effort level
     "character_limit": number,     // Max response size (25000)
     "server_version": string,      // Server version
+    "api_type": string,            // OpenAI API type (Responses API)
     "api_key_configured": boolean  // Whether OPENAI_API_KEY is set
   }`,
     inputSchema: StatusInputSchema,
@@ -582,6 +619,7 @@ Returns:
       default_reasoning: DEFAULT_REASONING_EFFORT,
       character_limit: CHARACTER_LIMIT,
       server_version: SERVER_VERSION,
+      api_type: "Responses API (v1/responses)",
       api_key_configured: !!process.env.OPENAI_API_KEY,
     };
 
@@ -602,6 +640,7 @@ Returns:
     statusText += `| **Default Reasoning** | \`${status.default_reasoning}\` (adaptive) |\n`;
     statusText += `| **Character Limit** | ${status.character_limit.toLocaleString()} |\n`;
     statusText += `| **Server Version** | ${status.server_version} |\n`;
+    statusText += `| **API Type** | ${status.api_type} |\n`;
     statusText += `| **API Key** | ${status.api_key_configured ? "✓ configured" : "⚠️ missing"} |\n`;
 
     return {
@@ -621,7 +660,7 @@ async function main(): Promise<void> {
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error(`${SERVER_NAME} v${SERVER_VERSION} running on stdio (model: ${ACTIVE_MODEL})`);
+  console.error(`${SERVER_NAME} v${SERVER_VERSION} running on stdio (model: ${ACTIVE_MODEL}, API: Responses)`);
 }
 
 main().catch((error) => {

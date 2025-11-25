@@ -9,7 +9,7 @@
 └─────────────────────┬───────────────────────────────────────┘
                       │ stdio (JSON-RPC)
 ┌─────────────────────▼───────────────────────────────────────┐
-│                   gpt-mcp-server                            │
+│                   gpt-mcp-server v2.0.0                     │
 │  ┌─────────────────────────────────────────────────────┐   │
 │  │  McpServer (registerTool API)                       │   │
 │  │  ├── gpt_generate    (text generation)              │   │
@@ -26,8 +26,13 @@
 └─────────────────────┬───────────────────────────────────────┘
                       │ HTTPS
 ┌─────────────────────▼───────────────────────────────────────┐
-│                   OpenAI API                                │
-│              api.openai.com/v1/...                          │
+│                   OpenAI Responses API                      │
+│              api.openai.com/v1/responses                    │
+│                                                             │
+│  Why Responses API (not Chat Completions)?                  │
+│  • gpt-5.1-codex ONLY works with Responses API              │
+│  • Built-in web search, file search, MCP tools              │
+│  • Adaptive reasoning with effort levels                    │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -47,7 +52,7 @@
 ```
 gpt-mcp-server/
 ├── src/
-│   └── index.ts          # Single-file server (~500 LOC)
+│   └── index.ts          # Single-file server (~670 LOC, Responses API)
 ├── dist/                 # Compiled output (gitignored)
 ├── docs/
 │   ├── PRD.md            # Product requirements
@@ -95,6 +100,8 @@ Startup:
 
 ## API Reference
 
+> **Note:** All tools use OpenAI's **Responses API** (`v1/responses`), not Chat Completions.
+
 ### gpt_generate
 
 Generate text using OpenAI GPT API with a simple input prompt.
@@ -105,9 +112,9 @@ Generate text using OpenAI GPT API with a simple input prompt.
   input: string;              // Required - The prompt
   model?: string;             // Optional - Model override
   instructions?: string;      // Optional - System instructions
-  reasoning_effort?: 'none' | 'minimal' | 'low' | 'medium' | 'high';  // GPT-5.1 reasoning control
+  reasoning_effort?: 'none' | 'minimal' | 'low' | 'medium' | 'high';  // GPT-5.x reasoning control
   response_format?: 'markdown' | 'json';  // Optional - Output format (default: markdown)
-  max_tokens?: number;        // Optional - Max output length
+  max_output_tokens?: number; // Optional - Max output length (Responses API parameter)
   temperature?: number;       // Optional - 0-2
   top_p?: number;             // Optional - 0-1
 }
@@ -131,14 +138,14 @@ Generate text using GPT with structured conversation messages.
 ```typescript
 {
   messages: Array<{
-    role: 'user' | 'developer' | 'assistant';
+    role: 'user' | 'assistant';  // Responses API supports only these roles
     content: string;
   }>;
   model?: string;
-  instructions?: string;
-  reasoning_effort?: 'none' | 'minimal' | 'low' | 'medium' | 'high';  // GPT-5.1 reasoning control
+  instructions?: string;         // System instructions (replaces 'developer' role)
+  reasoning_effort?: 'none' | 'minimal' | 'low' | 'medium' | 'high';  // GPT-5.x reasoning control
   response_format?: 'markdown' | 'json';  // Optional - Output format (default: markdown)
-  max_tokens?: number;
+  max_output_tokens?: number;    // Optional - Responses API parameter
   temperature?: number;
   top_p?: number;
 }
@@ -173,6 +180,7 @@ Check GPT MCP server status and configuration.
   default_reasoning: string;      // Default reasoning_effort level ("minimal")
   character_limit: number;        // Maximum response character limit (25000)
   server_version: string;         // Server version
+  api_type: string;               // "Responses API (v1/responses)"
   api_key_configured: boolean;    // Whether OPENAI_API_KEY is set
 }
 ```

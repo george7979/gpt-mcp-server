@@ -7,13 +7,15 @@
 
 An MCP (Model Context Protocol) server that brings OpenAI GPT capabilities to Claude Code and other MCP clients. Built following Anthropic's official MCP guidelines.
 
+**v2.0.0** - Now using OpenAI's **Responses API** (`v1/responses`) for full `gpt-5.1-codex` support!
+
 ## Why GPT + Claude?
 
 While Claude excels at many tasks, GPT offers unique capabilities:
 
 - **Different Training Data** - Alternative perspective from different model training
-- **Reasoning Models** - Access to GPT's reasoning effort levels (low/medium/high)
-- **Model Variety** - Access to GPT-4, GPT-4.1, GPT-5.1-codex and future models
+- **Reasoning Models** - Access to GPT's reasoning effort levels (none/minimal/low/medium/high)
+- **Model Variety** - Access to GPT-4, GPT-4.1, GPT-5.1, GPT-5.1-Codex and future models
 - **Second Opinion** - Get a different AI's take on complex problems
 
 ## Features
@@ -26,9 +28,22 @@ While Claude excels at many tasks, GPT offers unique capabilities:
 
 **Default Model:** `gpt-5.1-codex` (configurable via `GPT_MODEL` env var)
 
+**API:** OpenAI Responses API (`v1/responses`) - supports all GPT models including `gpt-5.1-codex`
+
+### Why Responses API?
+
+| Feature | Chat Completions | Responses API |
+|---------|------------------|---------------|
+| `gpt-5.1-codex` support | ❌ No | ✅ Yes |
+| All GPT models | ✅ Yes | ✅ Yes |
+| Built-in web search | ❌ No | ✅ Yes |
+| Built-in file search | ❌ No | ✅ Yes |
+
+The Responses API is OpenAI's newest interface, optimized for agentic coding tasks.
+
 ### Reasoning Control
 
-GPT-5.1 models support configurable reasoning depth via `reasoning_effort`:
+GPT-5.x models support configurable reasoning depth via `reasoning_effort`:
 
 | Value | Behavior |
 |-------|----------|
@@ -159,7 +174,7 @@ maintaining context across multiple exchanges.
 
 ### Check Configuration
 ```
-Use gpt_status to see which model is active and if fallback was used
+Use gpt_status to see which model is active, API type, and if fallback was used
 ```
 
 ## Tool Reference
@@ -173,10 +188,10 @@ Generate text from a single prompt.
 | `input` | string | Yes | The prompt or question |
 | `model` | string | No | Model to use (default: `gpt-5.1-codex`) |
 | `instructions` | string | No | System instructions |
-| `reasoning_effort` | string | No | `none`/`minimal`/`low`/`medium`/`high` (GPT-5.1 reasoning control) |
+| `reasoning_effort` | string | No | `none`/`minimal`/`low`/`medium`/`high` (GPT-5.x reasoning control) |
 | `response_format` | string | No | `markdown` (default) or `json` |
 | `temperature` | number | No | Randomness 0-2 (default: 1) |
-| `max_tokens` | number | No | Maximum output length |
+| `max_output_tokens` | number | No | Maximum output length |
 | `top_p` | number | No | Nucleus sampling 0-1 |
 
 ### gpt_messages
@@ -188,15 +203,15 @@ Multi-turn conversation with message history.
 | `messages` | array | Yes | Array of `{role, content}` objects |
 | `model` | string | No | Model to use (default: `gpt-5.1-codex`) |
 | `instructions` | string | No | System instructions |
-| `reasoning_effort` | string | No | `none`/`minimal`/`low`/`medium`/`high` (GPT-5.1 reasoning control) |
+| `reasoning_effort` | string | No | `none`/`minimal`/`low`/`medium`/`high` (GPT-5.x reasoning control) |
 | `response_format` | string | No | `markdown` (default) or `json` |
 | `temperature` | number | No | Randomness 0-2 |
-| `max_tokens` | number | No | Maximum output length |
+| `max_output_tokens` | number | No | Maximum output length |
 
 Message format:
 ```json
 {
-  "role": "user" | "assistant" | "developer",
+  "role": "user" | "assistant",
   "content": "message text"
 }
 ```
@@ -217,6 +232,7 @@ Returns:
 - `default_reasoning` - Default reasoning_effort level (`minimal`)
 - `character_limit` - Maximum response character limit (25000)
 - `server_version` - Server version
+- `api_type` - OpenAI API type (`Responses API (v1/responses)`)
 - `api_key_configured` - Whether OPENAI_API_KEY is set
 
 ## Development
@@ -257,7 +273,7 @@ Check your billing at [OpenAI Platform](https://platform.openai.com/usage). You 
 If you configure an invalid model via `GPT_MODEL`, the server automatically falls back to `gpt-5.1-codex`. The warning is logged to stderr but may not be visible in Claude Code.
 
 To check your current configuration status:
-1. Use the `gpt_status` tool - it shows active model and whether fallback occurred
+1. Use the `gpt_status` tool - it shows active model, API type, and whether fallback occurred
 2. Run Claude Code with `--verbose` flag to see MCP server logs
 
 ## Project Structure
@@ -265,7 +281,7 @@ To check your current configuration status:
 ```
 gpt-mcp-server/
 ├── src/
-│   └── index.ts          # Server implementation
+│   └── index.ts          # Server implementation (Responses API)
 ├── dist/                 # Compiled output
 ├── docs/
 │   ├── PRD.md            # Product requirements
@@ -278,6 +294,12 @@ gpt-mcp-server/
 └── CLAUDE.md             # AI assistant context
 ```
 
+## Version History
+
+- **v2.0.0** - Migrated to Responses API (`v1/responses`), enabling full `gpt-5.1-codex` support
+- **v1.1.0** - Added response_format, improved error handling
+- **v1.0.0** - Initial release with Chat Completions API
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
@@ -289,7 +311,7 @@ MIT License - see [LICENSE](LICENSE) for details.
 ## Acknowledgments
 
 - [Anthropic](https://anthropic.com/) - MCP Protocol and Claude
-- [OpenAI](https://openai.com/) - GPT API
+- [OpenAI](https://openai.com/) - GPT API and Responses API
 - [Model Context Protocol](https://modelcontextprotocol.io/) - Protocol specification
 
 ---

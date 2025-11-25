@@ -3,15 +3,19 @@
 ## Project Overview
 **Name:** gpt-mcp-server
 **Type:** MCP (Model Context Protocol) Server
+**Version:** 2.0.0
 **Status:** Production Ready
+**API:** OpenAI Responses API (`v1/responses`)
 **Repository:** https://github.com/george7979/gpt-mcp-server
 
 ## Problem Statement
 Claude Code users need access to OpenAI GPT capabilities without leaving their workflow. While Claude excels at many tasks, GPT offers unique strengths:
 - **Different Training Data** - Alternative perspective from different model training
-- **Reasoning Models** - Access to GPT's reasoning effort levels (low/medium/high)
-- **Model Variety** - Access to GPT-4, GPT-4.1, GPT-5.1-codex and future models
+- **Reasoning Models** - Access to GPT's reasoning effort levels (none/minimal/low/medium/high)
+- **Model Variety** - Access to GPT-4, GPT-4.1, GPT-5.1, GPT-5.1-Codex and future models
 - **Comparison** - Get a second opinion from a different AI provider
+
+**v2.0.0 Update:** Migrated from Chat Completions API to **Responses API** to support `gpt-5.1-codex` - the Chat Completions API does NOT support this model.
 
 Existing solutions are either outdated, poorly documented, or not compliant with Anthropic's MCP guidelines.
 

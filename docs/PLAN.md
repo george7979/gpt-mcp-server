@@ -52,6 +52,19 @@ Server has been built from scratch with modern MCP SDK patterns:
 - [x] Commit and push to GitHub
 - [ ] Make repository public (when ready)
 
+### Phase 7: v2.0.0 - Responses API Migration ✅
+- [x] Discovered `gpt-5.1-codex` only works with Responses API (not Chat Completions)
+- [x] Migrated from `v1/chat/completions` to `v1/responses`
+- [x] Updated API call: `openai.responses.create()` instead of `openai.chat.completions.create()`
+- [x] Changed parameter names:
+  - `max_tokens` → `max_output_tokens`
+  - `messages` → `input` (array of message items)
+  - `reasoning_effort` → `reasoning: { effort: ... }` (nested object)
+- [x] Updated response parsing: `extractResponseText()` for Responses API structure
+- [x] Updated message roles: `user` and `assistant` only (no `developer` in Responses API)
+- [x] Added `api_type` field to `gpt_status` output
+- [x] Updated all documentation (README, CLAUDE.md, docs/)
+
 ## Technical Decisions
 
 ### Why `registerTool()` over `setRequestHandler`?
