@@ -1,5 +1,6 @@
 # GPT MCP Server
 
+[![npm version](https://img.shields.io/npm/v/@george7979/gpt-mcp-server)](https://www.npmjs.com/package/@george7979/gpt-mcp-server)
 [![MCP](https://img.shields.io/badge/MCP-1.13.3-blue)](https://modelcontextprotocol.io/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-blue)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -39,6 +40,19 @@ GPT-5.1 models support configurable reasoning depth via `reasoning_effort`:
 | `high` | Deep reasoning, best for complex tasks |
 
 > **Note:** This server defaults to `minimal` to enable adaptive reasoning while keeping responses fast. Use `none` for maximum speed, `high` for complex analysis.
+
+### Response Format
+
+Both generation tools support `response_format` parameter:
+
+| Value | Description |
+|-------|-------------|
+| `markdown` | Human-readable markdown (default) |
+| `json` | Structured JSON for programmatic use |
+
+### Response Limits
+
+Responses are automatically truncated at **25,000 characters** to prevent token overflow. If truncation occurs, a warning is appended to the response.
 
 ## Quick Start
 
@@ -160,6 +174,7 @@ Generate text from a single prompt.
 | `model` | string | No | Model to use (default: `gpt-5.1-codex`) |
 | `instructions` | string | No | System instructions |
 | `reasoning_effort` | string | No | `none`/`minimal`/`low`/`medium`/`high` (GPT-5.1 reasoning control) |
+| `response_format` | string | No | `markdown` (default) or `json` |
 | `temperature` | number | No | Randomness 0-2 (default: 1) |
 | `max_tokens` | number | No | Maximum output length |
 | `top_p` | number | No | Nucleus sampling 0-1 |
@@ -174,6 +189,7 @@ Multi-turn conversation with message history.
 | `model` | string | No | Model to use (default: `gpt-5.1-codex`) |
 | `instructions` | string | No | System instructions |
 | `reasoning_effort` | string | No | `none`/`minimal`/`low`/`medium`/`high` (GPT-5.1 reasoning control) |
+| `response_format` | string | No | `markdown` (default) or `json` |
 | `temperature` | number | No | Randomness 0-2 |
 | `max_tokens` | number | No | Maximum output length |
 
@@ -198,6 +214,8 @@ Returns:
 - `configured_model` - Model from GPT_MODEL env var (if set)
 - `fallback_model` - Default fallback model
 - `fallback_used` - Whether fallback was triggered due to invalid model
+- `default_reasoning` - Default reasoning_effort level (`minimal`)
+- `character_limit` - Maximum response character limit (25000)
 - `server_version` - Server version
 - `api_key_configured` - Whether OPENAI_API_KEY is set
 

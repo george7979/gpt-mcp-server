@@ -70,6 +70,14 @@ gpt-mcp-server/
 | `OPENAI_API_KEY` | Yes | - | OpenAI API key |
 | `GPT_MODEL` | No | `gpt-5.1-codex` | Default model to use |
 
+### Constants
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `FALLBACK_MODEL` | `gpt-5.1-codex` | Default model when GPT_MODEL not set or invalid |
+| `CHARACTER_LIMIT` | `25000` | Maximum response characters before truncation |
+| `DEFAULT_REASONING_EFFORT` | `minimal` | Default reasoning_effort for GPT-5.1 models |
+
 ### Model Validation Flow
 
 ```
@@ -98,6 +106,7 @@ Generate text using OpenAI GPT API with a simple input prompt.
   model?: string;             // Optional - Model override
   instructions?: string;      // Optional - System instructions
   reasoning_effort?: 'none' | 'minimal' | 'low' | 'medium' | 'high';  // GPT-5.1 reasoning control
+  response_format?: 'markdown' | 'json';  // Optional - Output format (default: markdown)
   max_tokens?: number;        // Optional - Max output length
   temperature?: number;       // Optional - 0-2
   top_p?: number;             // Optional - 0-1
@@ -128,6 +137,7 @@ Generate text using GPT with structured conversation messages.
   model?: string;
   instructions?: string;
   reasoning_effort?: 'none' | 'minimal' | 'low' | 'medium' | 'high';  // GPT-5.1 reasoning control
+  response_format?: 'markdown' | 'json';  // Optional - Output format (default: markdown)
   max_tokens?: number;
   temperature?: number;
   top_p?: number;
@@ -161,6 +171,7 @@ Check GPT MCP server status and configuration.
   fallback_model: string;         // Default fallback
   fallback_used: boolean;         // Whether fallback was triggered
   default_reasoning: string;      // Default reasoning_effort level ("minimal")
+  character_limit: number;        // Maximum response character limit (25000)
   server_version: string;         // Server version
   api_key_configured: boolean;    // Whether OPENAI_API_KEY is set
 }

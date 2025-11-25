@@ -1,23 +1,43 @@
 {
-  "name": "gpt-mcp-server",
-  "version": "1.0.0",
+  "name": "@george7979/gpt-mcp-server",
+  "version": "1.1.0",
   "description": "MCP server providing OpenAI GPT capabilities to Claude Code",
   "type": "module",
   "main": "dist/index.js",
+  "bin": {
+    "gpt-mcp-server": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
-    "dev": "tsx watch src/index.ts"
+    "dev": "tsx watch src/index.ts",
+    "prepublishOnly": "npm run build"
   },
   "keywords": [
     "mcp",
     "openai",
     "gpt",
+    "gpt-5",
     "claude-code",
-    "ai"
+    "model-context-protocol",
+    "ai",
+    "llm"
   ],
   "author": "george7979",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/george7979/gpt-mcp-server.git"
+  },
+  "bugs": {
+    "url": "https://github.com/george7979/gpt-mcp-server/issues"
+  },
+  "homepage": "https://github.com/george7979/gpt-mcp-server#readme",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.13.3",
     "openai": "^4.73.0",

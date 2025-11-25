@@ -19,7 +19,7 @@ import { z } from "zod";
 // =============================================================================
 
 const SERVER_NAME = "gpt-mcp-server";
-const SERVER_VERSION = "1.0.0";
+const SERVER_VERSION = "1.1.0";
 
 // Model configuration
 const FALLBACK_MODEL = "gpt-5.1-codex";
@@ -29,6 +29,26 @@ let MODEL_FALLBACK_USED = false;
 
 // Reasoning configuration - "minimal" enables adaptive reasoning with lowest overhead
 const DEFAULT_REASONING_EFFORT = "minimal";
+
+// Response limits - prevent context overflow
+const CHARACTER_LIMIT = 25000;
+
+// =============================================================================
+// Types
+// =============================================================================
+
+/** Response format options */
+enum ResponseFormat {
+  MARKDOWN = "markdown",
+  JSON = "json"
+}
+
+/**
+ * Note on reasoning_effort:
+ * OpenAI SDK only types 'low' | 'medium' | 'high' | null
+ * but GPT-5.1 API actually supports 'none' and 'minimal' as well.
+ * We extend the type with `& { reasoning_effort?: string }` in handlers.
+ */
 
 // =============================================================================
 // Environment Validation
@@ -93,6 +113,21 @@ async function validateConfiguredModel(): Promise<void> {
 // =============================================================================
 
 /**
+ * Truncate response if it exceeds CHARACTER_LIMIT.
+ * Returns truncated text with warning message.
+ */
+function truncateResponse(text: string): { text: string; truncated: boolean } {
+  if (text.length <= CHARACTER_LIMIT) {
+    return { text, truncated: false };
+  }
+
+  const truncated = text.slice(0, CHARACTER_LIMIT);
+  const truncatedText = truncated + `\n\n---\n⚠️ **Response truncated** from ${text.length} to ${CHARACTER_LIMIT} characters. Use \`max_tokens\` parameter to limit output size.`;
+
+  return { text: truncatedText, truncated: true };
+}
+
+/**
  * Handle errors from OpenAI API calls.
  * Returns actionable error messages to guide users.
  */
@@ -155,7 +190,7 @@ const GenerateInputSchema = z.object({
     .describe("System instructions for the model"),
   reasoning_effort: z.enum(["none", "minimal", "low", "medium", "high"])
     .optional()
-    .describe("Reasoning effort level (GPT-5.1: none/minimal/low/medium/high, Codex: low/medium/high)"),
+    .describe("Reasoning effort level (GPT-5.1: none/minimal/low/medium/high)"),
   max_tokens: z.number()
     .int()
     .min(1)
@@ -171,6 +206,9 @@ const GenerateInputSchema = z.object({
     .max(1)
     .optional()
     .describe("Top-p sampling parameter"),
+  response_format: z.nativeEnum(ResponseFormat)
+    .default(ResponseFormat.MARKDOWN)
+    .describe("Output format: 'markdown' for human-readable or 'json' for structured data"),
 }).strict();
 
 server.registerTool(
@@ -189,14 +227,25 @@ Args:
   - instructions (string, optional): System instructions for the model
   - reasoning_effort (string, optional): Reasoning level - none/minimal/low/medium/high
     - none: No reasoning (like GPT-4.1, fastest)
-    - minimal: Minimal reasoning (very fast)
+    - minimal: Minimal reasoning (very fast, server default)
     - low/medium/high: Increasing reasoning depth
   - max_tokens (number, optional): Maximum output length
   - temperature (number, optional): Randomness 0-2 (higher = more creative)
   - top_p (number, optional): Top-p sampling parameter
+  - response_format ('markdown' | 'json'): Output format (default: 'markdown')
 
 Returns:
-  Generated text response from GPT.
+  For JSON format: Structured data with schema:
+  {
+    "text": string,           // Generated text content
+    "model": string,          // Model used for generation
+    "usage": {
+      "prompt_tokens": number,
+      "completion_tokens": number,
+      "total_tokens": number
+    },
+    "truncated": boolean      // Whether response was truncated
+  }
 
 Examples:
   - "Explain quantum computing in simple terms"
@@ -230,7 +279,7 @@ Note: Each call may produce different results due to model randomness.`,
         content: params.input,
       });
 
-      // Build request options, only including defined parameters
+      // Build request options
       const requestOptions: OpenAI.ChatCompletionCreateParamsNonStreaming = {
         model: params.model ?? ACTIVE_MODEL,
         messages,
@@ -241,23 +290,47 @@ Note: Each call may produce different results due to model randomness.`,
       if (params.temperature !== undefined) requestOptions.temperature = params.temperature;
       if (params.top_p !== undefined) requestOptions.top_p = params.top_p;
 
-      // reasoning_effort controls GPT-5.1 adaptive reasoning
-      // Default "minimal" enables adaptive mode with lowest overhead
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (requestOptions as any).reasoning_effort = params.reasoning_effort ?? DEFAULT_REASONING_EFFORT;
+      // reasoning_effort uses extended GPT-5.1 values ('none', 'minimal') not yet in SDK types
+      // Cast to unknown first to bypass TypeScript's strict checking
+      const extendedOptions = requestOptions as unknown as Record<string, unknown>;
+      extendedOptions.reasoning_effort = params.reasoning_effort ?? DEFAULT_REASONING_EFFORT;
 
       const response = await openai.chat.completions.create(requestOptions);
 
-      const text = response.choices[0]?.message?.content || "";
+      const rawText = response.choices[0]?.message?.content || "";
 
-      // Add usage info if available
-      let output = text;
-      if (response.usage) {
-        output += `\n\n---\n**Usage:** ${response.usage.prompt_tokens} prompt tokens, ${response.usage.completion_tokens} completion tokens, ${response.usage.total_tokens} total`;
+      // Prepare structured output
+      const structuredOutput = {
+        text: rawText,
+        model: requestOptions.model,
+        usage: response.usage ? {
+          prompt_tokens: response.usage.prompt_tokens,
+          completion_tokens: response.usage.completion_tokens,
+          total_tokens: response.usage.total_tokens,
+        } : undefined,
+        truncated: false,
+      };
+
+      // Format text based on response_format (defaults to markdown)
+      const format = params.response_format ?? ResponseFormat.MARKDOWN;
+      let textContent: string;
+      if (format === ResponseFormat.JSON) {
+        textContent = JSON.stringify(structuredOutput, null, 2);
+      } else {
+        // Markdown format
+        textContent = rawText;
+        if (response.usage) {
+          textContent += `\n\n---\n**Usage:** ${response.usage.prompt_tokens} prompt + ${response.usage.completion_tokens} completion = ${response.usage.total_tokens} total tokens`;
+        }
       }
 
+      // Apply truncation if needed
+      const { text: finalText, truncated } = truncateResponse(textContent);
+      structuredOutput.truncated = truncated;
+
       return {
-        content: [{ type: "text", text: output }],
+        content: [{ type: "text", text: finalText }],
+        structuredContent: structuredOutput,
       };
     } catch (error) {
       return {
@@ -292,7 +365,7 @@ const MessagesInputSchema = z.object({
     .describe("System instructions for the model"),
   reasoning_effort: z.enum(["none", "minimal", "low", "medium", "high"])
     .optional()
-    .describe("Reasoning effort level (GPT-5.1: none/minimal/low/medium/high, Codex: low/medium/high)"),
+    .describe("Reasoning effort level (GPT-5.1: none/minimal/low/medium/high)"),
   max_tokens: z.number()
     .int()
     .min(1)
@@ -308,6 +381,9 @@ const MessagesInputSchema = z.object({
     .max(1)
     .optional()
     .describe("Top-p sampling parameter"),
+  response_format: z.nativeEnum(ResponseFormat)
+    .default(ResponseFormat.MARKDOWN)
+    .describe("Output format: 'markdown' for human-readable or 'json' for structured data"),
 }).strict();
 
 server.registerTool(
@@ -330,9 +406,17 @@ Args:
   - max_tokens (number, optional): Maximum output length
   - temperature (number, optional): Randomness 0-2
   - top_p (number, optional): Top-p sampling parameter
+  - response_format ('markdown' | 'json'): Output format (default: 'markdown')
 
 Returns:
-  AI response continuing the conversation.
+  For JSON format: Structured data with schema:
+  {
+    "text": string,           // AI response text
+    "model": string,          // Model used
+    "message_count": number,  // Number of messages in conversation
+    "usage": { ... },         // Token usage
+    "truncated": boolean
+  }
 
 Example messages:
   [
@@ -370,7 +454,7 @@ Note: Messages should alternate between user and assistant roles.`,
         });
       }
 
-      // Build request options, only including defined parameters
+      // Build request options
       const requestOptions: OpenAI.ChatCompletionCreateParamsNonStreaming = {
         model: params.model ?? ACTIVE_MODEL,
         messages,
@@ -381,22 +465,47 @@ Note: Messages should alternate between user and assistant roles.`,
       if (params.temperature !== undefined) requestOptions.temperature = params.temperature;
       if (params.top_p !== undefined) requestOptions.top_p = params.top_p;
 
-      // reasoning_effort controls GPT-5.1 adaptive reasoning
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (requestOptions as any).reasoning_effort = params.reasoning_effort ?? DEFAULT_REASONING_EFFORT;
+      // reasoning_effort uses extended GPT-5.1 values ('none', 'minimal') not yet in SDK types
+      const extendedOptions = requestOptions as unknown as Record<string, unknown>;
+      extendedOptions.reasoning_effort = params.reasoning_effort ?? DEFAULT_REASONING_EFFORT;
 
       const response = await openai.chat.completions.create(requestOptions);
 
-      const text = response.choices[0]?.message?.content || "";
+      const rawText = response.choices[0]?.message?.content || "";
 
-      // Add usage info if available
-      let output = text;
-      if (response.usage) {
-        output += `\n\n---\n**Usage:** ${response.usage.prompt_tokens} prompt tokens, ${response.usage.completion_tokens} completion tokens, ${response.usage.total_tokens} total`;
+      // Prepare structured output
+      const structuredOutput = {
+        text: rawText,
+        model: requestOptions.model,
+        message_count: params.messages.length,
+        usage: response.usage ? {
+          prompt_tokens: response.usage.prompt_tokens,
+          completion_tokens: response.usage.completion_tokens,
+          total_tokens: response.usage.total_tokens,
+        } : undefined,
+        truncated: false,
+      };
+
+      // Format text based on response_format (defaults to markdown)
+      const format = params.response_format ?? ResponseFormat.MARKDOWN;
+      let textContent: string;
+      if (format === ResponseFormat.JSON) {
+        textContent = JSON.stringify(structuredOutput, null, 2);
+      } else {
+        // Markdown format
+        textContent = rawText;
+        if (response.usage) {
+          textContent += `\n\n---\n**Usage:** ${response.usage.prompt_tokens} prompt + ${response.usage.completion_tokens} completion = ${response.usage.total_tokens} total tokens`;
+        }
       }
 
+      // Apply truncation if needed
+      const { text: finalText, truncated } = truncateResponse(textContent);
+      structuredOutput.truncated = truncated;
+
       return {
-        content: [{ type: "text", text: output }],
+        content: [{ type: "text", text: finalText }],
+        structuredContent: structuredOutput,
       };
     } catch (error) {
       return {
@@ -412,6 +521,19 @@ Note: Messages should alternate between user and assistant roles.`,
 // =============================================================================
 
 const StatusInputSchema = z.object({}).strict();
+
+const StatusOutputSchema = z.object({
+  active_model: z.string().describe("Currently used model"),
+  configured_model: z.string().nullable().describe("Model from GPT_MODEL env var"),
+  fallback_model: z.string().describe("Default fallback model"),
+  fallback_used: z.boolean().describe("Whether fallback was triggered"),
+  default_reasoning: z.string().describe("Default reasoning_effort level"),
+  character_limit: z.number().describe("Maximum response character limit"),
+  server_version: z.string().describe("Server version"),
+  api_key_configured: z.boolean().describe("Whether OPENAI_API_KEY is set"),
+});
+
+type StatusOutput = z.infer<typeof StatusOutputSchema>;
 
 server.registerTool(
   "gpt_status",
@@ -431,15 +553,19 @@ Args:
   None required.
 
 Returns:
-  Server status including:
-  - active_model: Currently used model
-  - configured_model: Model from GPT_MODEL env var (if set)
-  - fallback_model: Default fallback model
-  - fallback_used: Whether fallback was triggered
-  - default_reasoning: Default reasoning_effort level
-  - server_version: Server version
-  - api_key_configured: Whether OPENAI_API_KEY is set`,
+  Structured data with schema:
+  {
+    "active_model": string,        // Currently used model
+    "configured_model": string|null, // From GPT_MODEL env var
+    "fallback_model": string,      // Default fallback model
+    "fallback_used": boolean,      // Whether fallback was triggered
+    "default_reasoning": string,   // Default reasoning_effort level
+    "character_limit": number,     // Max response size (25000)
+    "server_version": string,      // Server version
+    "api_key_configured": boolean  // Whether OPENAI_API_KEY is set
+  }`,
     inputSchema: StatusInputSchema,
+    outputSchema: StatusOutputSchema,
     annotations: {
       readOnlyHint: true,
       destructiveHint: false,
@@ -448,37 +574,39 @@ Returns:
     },
   },
   async () => {
-    const status = {
+    const status: StatusOutput = {
       active_model: ACTIVE_MODEL,
       configured_model: CONFIGURED_MODEL || null,
       fallback_model: FALLBACK_MODEL,
       fallback_used: MODEL_FALLBACK_USED,
       default_reasoning: DEFAULT_REASONING_EFFORT,
+      character_limit: CHARACTER_LIMIT,
       server_version: SERVER_VERSION,
       api_key_configured: !!process.env.OPENAI_API_KEY,
     };
 
-    let statusText = `**GPT MCP Server Status**\n\n`;
-    statusText += `- **Active Model:** ${status.active_model}\n`;
+    // Generate markdown text
+    let statusText = `# GPT MCP Server Status\n\n`;
+    statusText += `| Property | Value |\n`;
+    statusText += `|----------|-------|\n`;
+    statusText += `| **Active Model** | \`${status.active_model}\` |\n`;
 
     if (status.configured_model) {
-      statusText += `- **Configured Model:** ${status.configured_model}`;
-      if (status.fallback_used) {
-        statusText += ` ⚠️ (not found, using fallback)\n`;
-      } else {
-        statusText += ` ✓\n`;
-      }
+      const configStatus = status.fallback_used ? "⚠️ not found, using fallback" : "✓";
+      statusText += `| **Configured Model** | \`${status.configured_model}\` ${configStatus} |\n`;
     } else {
-      statusText += `- **Configured Model:** (not set, using default)\n`;
+      statusText += `| **Configured Model** | _(not set, using default)_ |\n`;
     }
 
-    statusText += `- **Fallback Model:** ${status.fallback_model}\n`;
-    statusText += `- **Default Reasoning:** ${status.default_reasoning} (adaptive mode)\n`;
-    statusText += `- **Server Version:** ${status.server_version}\n`;
-    statusText += `- **API Key:** ${status.api_key_configured ? "configured ✓" : "missing ⚠️"}\n`;
+    statusText += `| **Fallback Model** | \`${status.fallback_model}\` |\n`;
+    statusText += `| **Default Reasoning** | \`${status.default_reasoning}\` (adaptive) |\n`;
+    statusText += `| **Character Limit** | ${status.character_limit.toLocaleString()} |\n`;
+    statusText += `| **Server Version** | ${status.server_version} |\n`;
+    statusText += `| **API Key** | ${status.api_key_configured ? "✓ configured" : "⚠️ missing"} |\n`;
 
     return {
       content: [{ type: "text", text: statusText }],
+      structuredContent: status,
     };
   }
 );

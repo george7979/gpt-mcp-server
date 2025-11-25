@@ -55,14 +55,15 @@ server.registerTool(
 ### Code Structure
 ```
 src/index.ts:
-├── Constants (SERVER_NAME, FALLBACK_MODEL, CONFIGURED_MODEL, ACTIVE_MODEL, MODEL_FALLBACK_USED)
+├── Constants (SERVER_NAME, FALLBACK_MODEL, CHARACTER_LIMIT, ResponseFormat enum)
 ├── Environment validation (OPENAI_API_KEY)
 ├── OpenAI client initialization
 ├── Model validation (validateConfiguredModel)
-├── Shared types & utilities (handleOpenAIError)
-├── Tool: gpt_generate
-├── Tool: gpt_messages
-├── Tool: gpt_status
+├── Shared types & utilities (handleOpenAIError, truncateResponse)
+├── Zod schemas (GenerateSchema, MessagesSchema, StatusOutputSchema)
+├── Tool: gpt_generate (with structuredContent)
+├── Tool: gpt_messages (with structuredContent)
+├── Tool: gpt_status (with outputSchema)
 └── Server startup (validates model, then connects)
 ```
 
@@ -75,6 +76,8 @@ src/index.ts:
 | `gpt_status` | Server status and config check |
 
 **Default Model:** `gpt-5.1-codex` (configurable via `GPT_MODEL` env var)
+
+**Response Limit:** 25,000 characters (auto-truncated with warning)
 
 ## Dependencies
 
@@ -104,6 +107,14 @@ The `reasoning_effort` parameter controls GPT-5.1's chain-of-thought reasoning:
 - **`low`/`medium`/`high`:** Increasing reasoning depth
 
 **Server Default:** This server uses `minimal` by default to enable adaptive reasoning while keeping responses fast. Override with `none` for pure speed or `high` for complex analysis.
+
+### Response Format
+The `response_format` parameter controls output format:
+- **`markdown`:** Human-readable markdown (default)
+- **`json`:** Structured JSON for programmatic use
+
+### Response Truncation
+Responses exceeding 25,000 characters are automatically truncated with a warning appended. This prevents MCP token overflow issues.
 
 **Model Validation:** At startup, the server validates the configured model via OpenAI `models.list()` API:
 - If `GPT_MODEL` not set → uses default `gpt-5.1-codex` (no validation)
