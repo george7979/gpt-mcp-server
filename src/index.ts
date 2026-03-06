@@ -7,7 +7,7 @@
  * Features include text generation, multi-turn conversations, and server status.
  *
  * Uses OpenAI Responses API (v1/responses) which supports:
- * - All GPT models including gpt-5.1-codex
+ * - All GPT models including gpt-5.4
  * - Built-in tools (web search, file search)
  * - Adaptive reasoning with configurable effort
  *
@@ -25,15 +25,15 @@ import { z } from "zod";
 // =============================================================================
 
 const SERVER_NAME = "gpt-mcp-server";
-const SERVER_VERSION = "2.0.0";
+const SERVER_VERSION = "2.1.0";
 
-// Model configuration - gpt-5.1-codex works with Responses API
-const FALLBACK_MODEL = "gpt-5.1-codex";
+// Model configuration - gpt-5.4 works with Responses API
+const FALLBACK_MODEL = "gpt-5.4";
 const CONFIGURED_MODEL = process.env.GPT_MODEL;
 let ACTIVE_MODEL = CONFIGURED_MODEL || FALLBACK_MODEL;
 let MODEL_FALLBACK_USED = false;
 
-// Reasoning configuration - "low" is the minimum supported level for gpt-5.1-codex
+// Reasoning configuration - "low" is the minimum supported level for gpt-5.4
 const DEFAULT_REASONING_EFFORT = "low";
 
 // Response limits - prevent context overflow
@@ -210,7 +210,7 @@ const GenerateInputSchema = z.object({
     .describe("The input text or prompt for GPT"),
   model: z.string()
     .optional()
-    .describe("GPT model variant to use (defaults to GPT_MODEL env or gpt-5.1-codex)"),
+    .describe("GPT model variant to use (defaults to GPT_MODEL env or gpt-5.4)"),
   instructions: z.string()
     .optional()
     .describe("System instructions for the model"),
@@ -249,7 +249,7 @@ creative writing, code generation, analysis, and general AI assistance tasks.
 
 Args:
   - input (string, required): The prompt or question for GPT
-  - model (string, optional): Model to use (defaults to GPT_MODEL env or gpt-5.1-codex)
+  - model (string, optional): Model to use (defaults to GPT_MODEL env or gpt-5.4)
   - instructions (string, optional): System instructions for the model
   - reasoning_effort (string, optional): Reasoning level - none/low/medium/high
     - none: No reasoning (like GPT-4.1, fastest)
@@ -386,7 +386,7 @@ const MessagesInputSchema = z.object({
     .describe("Array of conversation messages"),
   model: z.string()
     .optional()
-    .describe("GPT model variant to use (defaults to GPT_MODEL env or gpt-5.1-codex)"),
+    .describe("GPT model variant to use (defaults to GPT_MODEL env or gpt-5.4)"),
   instructions: z.string()
     .optional()
     .describe("System instructions for the model"),
@@ -427,7 +427,7 @@ Args:
   - messages (array, required): Conversation history
     - role: "user" (human) or "assistant" (AI response)
     - content: The message text
-  - model (string, optional): Model to use (defaults to GPT_MODEL env or gpt-5.1-codex)
+  - model (string, optional): Model to use (defaults to GPT_MODEL env or gpt-5.4)
   - instructions (string, optional): System instructions for the model
   - reasoning_effort (string, optional): Reasoning level - none/low/medium/high
   - max_output_tokens (number, optional): Maximum output length

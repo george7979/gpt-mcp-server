@@ -39,14 +39,14 @@ All server code is in `src/index.ts` (~670 LOC). This is intentional:
 | Feature | Chat Completions | Responses API |
 |---------|------------------|---------------|
 | Endpoint | `v1/chat/completions` | `v1/responses` |
-| `gpt-5.1-codex` support | ❌ No | ✅ Yes |
+| `gpt-5.4` support | ❌ No | ✅ Yes |
 | All GPT models | ✅ Yes | ✅ Yes |
 | Built-in web search | ❌ No | ✅ Yes |
 | Built-in file search | ❌ No | ✅ Yes |
 | MCP Tools integration | ❌ No | ✅ Yes |
 | Multi-turn via `previous_response_id` | ❌ No | ✅ Yes |
 
-The Responses API is OpenAI's newest and most advanced interface, supporting all models including `gpt-5.1-codex` which is optimized for agentic coding tasks.
+The Responses API is OpenAI's newest and most advanced interface, supporting all models including `gpt-5.4` which is optimized for agentic coding tasks.
 
 ### Key Patterns
 
@@ -92,7 +92,7 @@ src/index.ts:
 | `gpt_messages` | Multi-turn conversations |
 | `gpt_status` | Server status and config check |
 
-**Default Model:** `gpt-5.1-codex` (configurable via `GPT_MODEL` env var)
+**Default Model:** `gpt-5.4` (configurable via `GPT_MODEL` env var)
 
 **Response Limit:** 25,000 characters (auto-truncated with warning)
 
@@ -123,7 +123,7 @@ The `reasoning_effort` parameter controls GPT-5.x's chain-of-thought reasoning:
 - **`low`:** Light reasoning (fast, server default)
 - **`medium`/`high`:** Increasing reasoning depth
 
-**Server Default:** This server uses `low` by default as the minimum supported reasoning level for gpt-5.1-codex. Override with `none` for pure speed or `high` for complex analysis.
+**Server Default:** This server uses `low` by default as the minimum supported reasoning level for gpt-5.4. Override with `none` for pure speed or `high` for complex analysis.
 
 ### Response Format
 The `response_format` parameter controls output format:
@@ -145,9 +145,9 @@ function extractResponseText(response: OpenAI.Responses.Response): string {
 ```
 
 **Model Validation:** At startup, the server validates the configured model via OpenAI `models.list()` API:
-- If `GPT_MODEL` not set → uses default `gpt-5.1-codex` (no validation)
+- If `GPT_MODEL` not set → uses default `gpt-5.4` (no validation)
 - If model exists → uses it silently
-- If model doesn't exist → warning to stderr + fallback to `gpt-5.1-codex`
+- If model doesn't exist → warning to stderr + fallback to `gpt-5.4`
 
 **Fallback model:** Hardcoded in `FALLBACK_MODEL` constant in `src/index.ts`.
 
@@ -160,7 +160,7 @@ function extractResponseText(response: OpenAI.Responses.Response): string {
 ```typescript
 // Simple text generation
 const response = await openai.responses.create({
-  model: "gpt-5.1-codex",
+  model: "gpt-5.4",
   input: "Your prompt here",
   instructions: "System instructions (optional)",
   reasoning: { effort: "low" },  // GPT-5.x only
@@ -170,7 +170,7 @@ const response = await openai.responses.create({
 
 // Multi-turn conversation
 const response = await openai.responses.create({
-  model: "gpt-5.1-codex",
+  model: "gpt-5.4",
   input: [
     { type: "message", role: "user", content: "Hello" },
     { type: "message", role: "assistant", content: "Hi there!" },
@@ -195,6 +195,7 @@ response.usage.total_tokens
 
 ## Version History
 
+- **v2.1.0** - Default model updated to `gpt-5.4`
 - **v2.0.0** - Migrated to Responses API (`v1/responses`), enabling `gpt-5.1-codex` support
 - **v1.1.0** - Added response_format, improved error handling
 - **v1.0.0** - Initial release with Chat Completions API
