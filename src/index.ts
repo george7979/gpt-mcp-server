@@ -296,6 +296,7 @@ Note: Each call may produce different results due to model randomness.`,
       const requestOptions: OpenAI.Responses.ResponseCreateParams = {
         model,
         input: params.input,
+        store: false, // Zero-retention: OpenAI will not store request/response data
       };
 
       // Add instructions if provided
@@ -478,6 +479,7 @@ Note: Messages should alternate between user and assistant roles.`,
       const requestOptions: OpenAI.Responses.ResponseCreateParams = {
         model,
         input: inputItems,
+        store: false, // Zero-retention: OpenAI will not store request/response data
       };
 
       // Add instructions if provided
