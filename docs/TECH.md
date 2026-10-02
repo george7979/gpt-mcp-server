@@ -9,7 +9,7 @@
 └─────────────────────┬───────────────────────────────────────┘
                       │ stdio (JSON-RPC)
 ┌─────────────────────▼───────────────────────────────────────┐
-│                   gpt-mcp-server v2.1.0                     │
+│                   gpt-mcp-server v2.2.0                     │
 │  ┌─────────────────────────────────────────────────────┐   │
 │  │  McpServer (registerTool API)                       │   │
 │  │  ├── gpt_generate    (text generation)              │   │
@@ -18,7 +18,7 @@
 │  └─────────────────────────────────────────────────────┘   │
 │  ┌─────────────────────────────────────────────────────┐   │
 │  │  Model Configuration                                 │   │
-│  │  ├── FALLBACK_MODEL = "gpt-5.4"                     │   │
+│  │  ├── FALLBACK_MODEL = "gpt-6.1-sol"                 │   │
 │  │  ├── GPT_MODEL env var (optional override)          │   │
 │  │  ├── validateConfiguredModel() at startup           │   │
 │  │  └── MODEL_FALLBACK_USED flag                       │   │
@@ -30,7 +30,7 @@
 │              api.openai.com/v1/responses                    │
 │                                                             │
 │  Why Responses API (not Chat Completions)?                  │
-│  • gpt-5.4 works with Responses API                         │
+│  • gpt-6.1-sol works with Responses API                     │
 │  • Built-in web search, file search, MCP tools              │
 │  • Adaptive reasoning with effort levels                    │
 └─────────────────────────────────────────────────────────────┘
@@ -73,13 +73,13 @@ gpt-mcp-server/
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `OPENAI_API_KEY` | Yes | - | OpenAI API key |
-| `GPT_MODEL` | No | `gpt-5.4` | Default model to use |
+| `GPT_MODEL` | No | `gpt-6.1-sol` | Default model to use |
 
 ### Constants
 
 | Constant | Value | Description |
 |----------|-------|-------------|
-| `FALLBACK_MODEL` | `gpt-5.4` | Default model when GPT_MODEL not set or invalid |
+| `FALLBACK_MODEL` | `gpt-6.1-sol` | Default model when GPT_MODEL not set or invalid |
 | `CHARACTER_LIMIT` | `25000` | Maximum response characters before truncation |
 | `DEFAULT_REASONING_EFFORT` | `low` | Default reasoning_effort for GPT-5.x models |
 
@@ -253,7 +253,7 @@ npx @modelcontextprotocol/inspector node dist/index.js
       "args": ["/path/to/gpt-mcp-server/dist/index.js"],
       "env": {
         "OPENAI_API_KEY": "sk-...",
-        "GPT_MODEL": "gpt-5.4"
+        "GPT_MODEL": "gpt-6.1-sol"
       }
     }
   }

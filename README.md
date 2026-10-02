@@ -7,7 +7,7 @@
 
 An MCP (Model Context Protocol) server that brings OpenAI GPT capabilities to Claude Code and other MCP clients. Built following Anthropic's official MCP guidelines.
 
-**v2.1.0** - Default model updated to **gpt-5.4**. Uses OpenAI's **Responses API** (`v1/responses`).
+**v2.2.0** - Default model updated to **gpt-6.1-sol**. Uses OpenAI's **Responses API** (`v1/responses`).
 
 ## Why GPT + Claude?
 
@@ -26,15 +26,14 @@ While Claude excels at many tasks, GPT offers unique capabilities:
 | `gpt_messages` | Multi-turn structured conversations |
 | `gpt_status` | Server status and configuration check |
 
-**Default Model:** `gpt-5.4` (configurable via `GPT_MODEL` env var)
+**Default Model:** `gpt-6.1-sol` (configurable via `GPT_MODEL` env var)
 
-**API:** OpenAI Responses API (`v1/responses`) - supports all GPT models including `gpt-5.4`
+**API:** OpenAI Responses API (`v1/responses`) - supports all GPT models including `gpt-6.1-sol`
 
 ### Why Responses API?
 
 | Feature | Chat Completions | Responses API |
 |---------|------------------|---------------|
-| `gpt-5.4` support | ❌ No | ✅ Yes |
 | All GPT models | ✅ Yes | ✅ Yes |
 | Built-in web search | ❌ No | ✅ Yes |
 | Built-in file search | ❌ No | ✅ Yes |
@@ -53,7 +52,7 @@ GPT-5.x models support configurable reasoning depth via `reasoning_effort`:
 | `medium` | Moderate reasoning depth |
 | `high` | Deep reasoning, best for complex tasks |
 
-> **Note:** This server defaults to `low` as the minimum supported level for gpt-5.4. Use `none` for maximum speed, `high` for complex analysis.
+> **Note:** This server defaults to `low` (light reasoning). Use `none` for maximum speed, `high` for complex analysis.
 
 ### Response Format
 
@@ -119,7 +118,7 @@ Add to your Claude Code MCP settings file (`~/.claude.json`)
       "args": ["/absolute/path/to/gpt-mcp-server/dist/index.js"],
       "env": {
         "OPENAI_API_KEY": "your-api-key-here",
-        "GPT_MODEL": "gpt-5.4"  // optional - validated at startup
+        "GPT_MODEL": "gpt-6.1-sol"  // optional - validated at startup
       }
     }
   }
@@ -139,7 +138,7 @@ Add to `.vscode/mcp.json`
       "args": ["${workspaceFolder}/path/to/gpt-mcp-server/dist/index.js"],
       "env": {
         "OPENAI_API_KEY": "your-api-key-here",
-        "GPT_MODEL": "gpt-5.4"  // optional - validated at startup
+        "GPT_MODEL": "gpt-6.1-sol"  // optional - validated at startup
       }
     }
   }
@@ -185,7 +184,7 @@ Generate text from a single prompt.
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `input` | string | Yes | The prompt or question |
-| `model` | string | No | Model to use (default: `gpt-5.4`) |
+| `model` | string | No | Model to use (default: `gpt-6.1-sol`) |
 | `instructions` | string | No | System instructions |
 | `reasoning_effort` | string | No | `none`/`low`/`medium`/`high` (GPT-5.x reasoning control) |
 | `response_format` | string | No | `markdown` (default) or `json` |
@@ -200,7 +199,7 @@ Multi-turn conversation with message history.
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `messages` | array | Yes | Array of `{role, content}` objects |
-| `model` | string | No | Model to use (default: `gpt-5.4`) |
+| `model` | string | No | Model to use (default: `gpt-6.1-sol`) |
 | `instructions` | string | No | System instructions |
 | `reasoning_effort` | string | No | `none`/`low`/`medium`/`high` (GPT-5.x reasoning control) |
 | `response_format` | string | No | `markdown` (default) or `json` |
@@ -269,7 +268,7 @@ Check your billing at [OpenAI Platform](https://platform.openai.com/usage). You 
 3. Restart Claude Code after configuration changes
 
 ### Model validation and fallback
-If you configure an invalid model via `GPT_MODEL`, the server automatically falls back to `gpt-5.4`. The warning is logged to stderr but may not be visible in Claude Code.
+If you configure an invalid model via `GPT_MODEL`, the server automatically falls back to `gpt-6.1-sol`. The warning is logged to stderr but may not be visible in Claude Code.
 
 To check your current configuration status:
 1. Use the `gpt_status` tool - it shows active model, API type, and whether fallback occurred
@@ -295,6 +294,7 @@ gpt-mcp-server/
 
 ## Version History
 
+- **v2.2.0** - Default model updated to `gpt-6.1-sol`
 - **v2.1.0** - Default model updated to `gpt-5.4`
 - **v2.0.0** - Migrated to Responses API (`v1/responses`), enabling full `gpt-5.1-codex` support
 - **v1.1.0** - Added response_format, improved error handling
